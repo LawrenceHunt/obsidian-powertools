@@ -5,7 +5,7 @@ import { paragraphPrefixAfterSelection } from "../editor/paragraph";
 import { advancePos, type EditorPos } from "../editor/pos";
 import { createBufferedInserter } from "../editor/stream-insert";
 
-export async function runPromptSelectedCommand(
+async function runPromptSelectedCommand(
 	plugin: PowerToolsPlugin,
 	editor: Editor
 ): Promise<void> {
@@ -44,4 +44,3 @@ export function registerPromptSelectedCommand(plugin: PowerToolsPlugin): void {
 			runPromptSelectedCommand(plugin, editor),
 	});
 }
-

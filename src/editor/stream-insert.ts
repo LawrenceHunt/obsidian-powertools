@@ -11,7 +11,10 @@ const DEFAULT_POLICY: FlushPolicy = {
 	maxBufferChars: 80,
 };
 
-function splitAtLastWhitespace(buffer: string): { flushNow: string; remainder: string } {
+function splitAtLastWhitespace(buffer: string): {
+	flushNow: string;
+	remainder: string;
+} {
 	const lastWhitespaceIdx = Math.max(
 		buffer.lastIndexOf(" "),
 		buffer.lastIndexOf("\n"),
@@ -24,6 +27,8 @@ function splitAtLastWhitespace(buffer: string): { flushNow: string; remainder: s
 	};
 }
 
+/** Creates a buffered inserter that inserts text into the editor in chunks,
+ * instead of stuttering one token at a time. */
 export function createBufferedInserter(
 	editor: Editor,
 	startPos: EditorPos,
@@ -38,6 +43,7 @@ export function createBufferedInserter(
 	let pending = "";
 	let done = false;
 
+	/** Flushes the pending buffer to the editor. */
 	const flush = () => {
 		if (!pending) return;
 
@@ -67,4 +73,3 @@ export function createBufferedInserter(
 		},
 	};
 }
-

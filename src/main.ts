@@ -4,7 +4,7 @@ import {
 	PowerToolsSettings,
 	PowerToolsSettingsTab,
 } from "./settings";
-import { registerCommands } from "./commands";
+import { registerCommands } from "./commands/register-commands";
 export default class PowerToolsPlugin extends Plugin {
 	settings: PowerToolsSettings;
 

@@ -1,5 +1,6 @@
 export type EditorPos = { line: number; ch: number };
 
+/** Advances the position of the cursor by the length of the inserted text. */
 export function advancePos(pos: EditorPos, insertedText: string): EditorPos {
 	const parts = insertedText.split("\n");
 	if (parts.length === 1) {
@@ -12,4 +13,3 @@ export function advancePos(pos: EditorPos, insertedText: string): EditorPos {
 		ch: last.length,
 	};
 }
-
