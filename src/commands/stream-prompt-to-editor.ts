@@ -11,12 +11,11 @@ export async function streamPromptToEditor(
 	}
 
 	try {
-		new Notice(`Prompting with ${args.userPrompt.length} characters...`);
-
 		await streamOpenAIResponse(args);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		new Notice(message);
-		throw err;
+		new Notice(`Power Tools: streaming failed. ${message}`);
+		// Swallow to avoid "Uncaught (in promise)" console noise; caller can continue cleanup in finally blocks.
+		return;
 	}
 }
