@@ -6,10 +6,14 @@ import {
 	type TFile,
 	type WorkspaceLeaf,
 } from "obsidian";
-import { streamPromptToEditor } from "../prompt";
+import { streamPromptToEditor } from "./stream-prompt-to-editor";
 import { createBufferedInserter } from "../editor/stream-insert";
 import { advancePos } from "../editor/pos";
-import { getShortSummary, provisionalTitleFromText, sanitizeFilename } from "../openai/summary";
+import {
+	getShortSummary,
+	provisionalTitleFromText,
+	sanitizeFilename,
+} from "../openai/summary";
 
 function fallbackNoteFilename(): string {
 	const now = new Date();
@@ -105,7 +109,10 @@ async function runPromptSelectedNewNoteCommand(
 		const responseText = content.slice(promptBlock.length).trim();
 		const combined =
 			responseText.length > 0
-				? `Prompt:\n${selectedText}\n\nResponse:\n${responseText.slice(0, 2000)}`
+				? `Prompt:\n${selectedText}\n\nResponse:\n${responseText.slice(
+						0,
+						2000
+				  )}`
 				: selectedText;
 		const summary = await getShortSummary({
 			apiKey: plugin.settings.openAIAPIKey,

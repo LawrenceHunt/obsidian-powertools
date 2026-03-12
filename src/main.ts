@@ -11,7 +11,6 @@ export default class PowerToolsPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		registerCommands(this);
-
 		this.addSettingTab(new PowerToolsSettingsTab(this.app, this));
 	}
 

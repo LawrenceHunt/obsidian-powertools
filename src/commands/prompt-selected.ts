@@ -1,6 +1,6 @@
 import type PowerToolsPlugin from "../main";
 import { Notice, type Editor, type MarkdownView } from "obsidian";
-import { streamPromptToEditor } from "../prompt";
+import { streamPromptToEditor } from "./stream-prompt-to-editor";
 import { paragraphPrefixAfterSelection } from "../editor/paragraph";
 import { advancePos, type EditorPos } from "../editor/pos";
 import { createBufferedInserter } from "../editor/stream-insert";
