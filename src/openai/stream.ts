@@ -1,3 +1,5 @@
+import OpenAI from "openai";
+
 export type OpenAIStreamArgs = {
 	apiKey: string;
 	model: string;
@@ -19,7 +21,8 @@ function extractTextDelta(event: unknown): string | null {
 		const choice0 = event.choices[0];
 		if (isRecord(choice0) && isRecord(choice0.delta)) {
 			const content = choice0.delta.content;
-			if (typeof content === "string" && content.length > 0) return content;
+			if (typeof content === "string" && content.length > 0)
+				return content;
 		}
 	}
 
@@ -46,72 +49,34 @@ export async function streamOpenAIResponse({
 	userPrompt,
 	onText,
 }: OpenAIStreamArgs): Promise<void> {
-	// We intentionally use fetch here because Obsidian's requestUrl helper does not support streaming responses.
-	// eslint-disable-next-line
-	const res = await fetch("https://api.openai.com/v1/responses", {
-		method: "POST",
-		headers: {
-			Authorization: `Bearer ${apiKey}`,
-			"Content-Type": "application/json",
-		},
-		body: JSON.stringify({
-			model,
-			stream: true,
-			input: [
-				{
-					role: "system",
-					content: [{ type: "input_text", text: "You are a helpful assistant." }],
-				},
-				{
-					role: "user",
-					content: [{ type: "input_text", text: userPrompt }],
-				},
-			],
-		}),
+	const client = new OpenAI({
+		apiKey,
+		// Obsidian plugins run in a browser-like environment; the SDK requires this opt-in.
+		dangerouslyAllowBrowser: true,
 	});
 
-	if (!res.ok) {
-		const body = await res.text().catch(() => "");
-		throw new Error(`OpenAI error ${res.status}: ${body || res.statusText}`);
-	}
-	if (!res.body) throw new Error("No response body to stream.");
+	const stream = await client.responses.create({
+		model,
+		stream: true,
+		input: [
+			{
+				role: "system",
+				content: [
+					{
+						type: "input_text",
+						text: "You are a helpful assistant.",
+					},
+				],
+			},
+			{
+				role: "user",
+				content: [{ type: "input_text", text: userPrompt }],
+			},
+		],
+	});
 
-	const reader = res.body.getReader();
-	const decoder = new TextDecoder();
-
-	let buffer = "";
-	while (true) {
-		const { value, done } = await reader.read();
-		if (done) break;
-		buffer += decoder.decode(value, { stream: true });
-
-		// SSE events are separated by blank lines
-		let sepIndex: number;
-		while ((sepIndex = buffer.indexOf("\n\n")) !== -1) {
-			const rawEvent = buffer.slice(0, sepIndex);
-			buffer = buffer.slice(sepIndex + 2);
-
-			const lines = rawEvent
-				.split("\n")
-				.map((l) => l.trim())
-				.filter(Boolean);
-
-			for (const line of lines) {
-				if (!line.startsWith("data:")) continue;
-				const data = line.slice("data:".length).trim();
-				if (!data || data === "[DONE]") continue;
-
-				let parsed: unknown;
-				try {
-					parsed = JSON.parse(data) as unknown;
-				} catch {
-					continue;
-				}
-
-				const chunk = extractTextDelta(parsed);
-				if (chunk) onText(chunk);
-			}
-		}
+	for await (const event of stream) {
+		const chunk = extractTextDelta(event);
+		if (chunk) onText(chunk);
 	}
 }
-
