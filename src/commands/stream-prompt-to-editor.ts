@@ -11,6 +11,7 @@ export async function streamPromptToEditor(
 	}
 
 	try {
+		new Notice(`Prompting with ${args.userPrompt.length} characters...`);
 		await streamOpenAIResponse(args);
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
