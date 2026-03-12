@@ -11,10 +11,16 @@ const DEFAULT_POLICY: FlushPolicy = {
 	maxBufferChars: 80,
 };
 
-function splitAtLastWhitespace(buffer: string): {
+type BufferSplitResult = {
 	flushNow: string;
 	remainder: string;
-} {
+};
+
+/** Splits the buffer at the last whitespace character.
+ * Returns the part before the last whitespace and the remainder.
+ * If there is no whitespace, returns the entire buffer and an empty string.
+ */
+function splitAtLastWhitespace(buffer: string): BufferSplitResult {
 	const lastWhitespaceIdx = Math.max(
 		buffer.lastIndexOf(" "),
 		buffer.lastIndexOf("\n"),
