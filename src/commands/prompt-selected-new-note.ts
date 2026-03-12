@@ -26,6 +26,10 @@ function fallbackNoteFilename(): string {
 	return `Response ${y}-${m}-${d} ${h}${min}${s}.md`;
 }
 
+function linkAliasForSelectedText(text: string): string {
+	return text.replace(/\|/g, " ").replace(/\]\]/g, " ");
+}
+
 function getEditorFromLeaf(leaf: WorkspaceLeaf): Editor | null {
 	const view = leaf.view;
 	if (
@@ -83,12 +87,18 @@ async function runPromptSelectedNewNoteCommand(
 		return;
 	}
 
-	// add the selected text to the new note
-	const promptBlock = selectedText + "\n\n";
-	newEditor.replaceRange(promptBlock, { line: 0, ch: 0 });
+	const sourceBasename = activeFile.basename.replace(/\.md$/i, "");
+	const backlinkLine = `[[${sourceBasename}]]\n\n`;
 
-	// move cursor to after the prompt block
-	const insertPos = advancePos({ line: 0, ch: 0 }, promptBlock);
+	// Prompt block with block ref so we can link directly to it (no extra heading)
+	const promptSection = `${selectedText}\n^prompt\n\n`;
+	newEditor.replaceRange(backlinkLine + promptSection, { line: 0, ch: 0 });
+
+	const insertPos = advancePos(
+		{ line: 0, ch: 0 },
+		backlinkLine + promptSection
+	);
+	let finalBasename = provisional || filename.replace(/\.md$/i, "");
 	const inserter = createBufferedInserter(newEditor, insertPos);
 	newEditor.setCursor(insertPos);
 
@@ -106,7 +116,8 @@ async function runPromptSelectedNewNoteCommand(
 	// Rename note to a 4–5 word summary of prompt + response
 	try {
 		const content = await plugin.app.vault.read(newFile);
-		const responseText = content.slice(promptBlock.length).trim();
+		const headerLength = (backlinkLine + promptSection).length;
+		const responseText = content.slice(headerLength).trim();
 		const combined =
 			responseText.length > 0
 				? `Prompt:\n${selectedText}\n\nResponse:\n${responseText.slice(
@@ -123,10 +134,15 @@ async function runPromptSelectedNewNoteCommand(
 		if (sanitized && sanitized !== provisional) {
 			const newPath = `${folder.path}/${sanitized}.md`;
 			await plugin.app.fileManager.renameFile(newFile, newPath);
+			finalBasename = sanitized;
 		}
 	} catch {
 		// Keep provisional name if summary or rename fails
 	}
+
+	// Link from source: preserve selected text as link text, target the prompt block in the new note (^prompt)
+	const alias = linkAliasForSelectedText(selectedText);
+	editor.replaceSelection(`[[${finalBasename}#^prompt|${alias}]]`);
 }
 
 export function registerPromptSelectedNewNoteCommand(

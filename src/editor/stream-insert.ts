@@ -1,5 +1,5 @@
 import type { Editor } from "obsidian";
-import { advancePos, type EditorPos } from "./pos";
+import { advancePos, clampToDocEnd, type EditorPos } from "./pos";
 
 type FlushPolicy = {
 	intervalMs: number;
@@ -54,6 +54,7 @@ export function createBufferedInserter(
 		if (!flushNow) return;
 		pending = remainder;
 
+		insertPos = clampToDocEnd(insertPos, editor);
 		editor.replaceRange(flushNow, insertPos);
 		insertPos = advancePos(insertPos, flushNow);
 		editor.setCursor(insertPos);
