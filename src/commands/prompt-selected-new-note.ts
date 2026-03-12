@@ -1,14 +1,15 @@
 import type PowerToolsPlugin from "../main";
-import {
-	Notice,
-	type Editor,
-	type MarkdownView,
-	type TFile,
-	type WorkspaceLeaf,
-} from "obsidian";
+import { Notice, type Editor, type MarkdownView } from "obsidian";
 import { streamPromptToEditor } from "./stream-prompt-to-editor";
 import { createBufferedInserter } from "../editor/stream-insert";
 import { advancePos } from "../editor/pos";
+import {
+	buildNewNoteHeader,
+	createMarkdownNoteInFolder,
+	getParentFolderForFile,
+	openFileInSplitAndGetEditor,
+	renameNoteIfNeeded,
+} from "../editor/note-utils";
 import {
 	getShortSummary,
 	provisionalTitleFromText,
@@ -30,18 +31,17 @@ function linkAliasForSelectedText(text: string): string {
 	return text.replace(/\|/g, " ").replace(/\]\]/g, " ");
 }
 
-function getEditorFromLeaf(leaf: WorkspaceLeaf): Editor | null {
-	const view = leaf.view;
-	if (
-		view &&
-		"editor" in view &&
-		typeof (view as MarkdownView).editor !== "undefined"
-	) {
-		return (view as MarkdownView).editor;
-	}
-	return null;
-}
-
+/**
+ * Use selected text as prompt (new note)
+ *
+ * This command:
+ * - creates a new note with the selected text as the prompt.
+ * - opens the new note in a split view.
+ * - adds a backlink from the source note to the new note.
+ * - starts streaming the response to the new note.
+ * - renames the new note to a 4–5 word summary of the prompt + response.
+ * - links the source note to the new note using the selected text as the link text.
+ */
 async function runPromptSelectedNewNoteCommand(
 	plugin: PowerToolsPlugin,
 	editor: Editor,
@@ -59,45 +59,48 @@ async function runPromptSelectedNewNoteCommand(
 		return;
 	}
 
-	const folder = activeFile.parent ?? plugin.app.vault.getRoot();
+	const folder = getParentFolderForFile(activeFile, () =>
+		plugin.app.vault.getRoot()
+	);
 
 	const provisional = provisionalTitleFromText(selectedText);
 	const filename = provisional ? `${provisional}.md` : fallbackNoteFilename();
-	const path = `${folder.path}/${filename}`;
 
-	let newFile: TFile;
+	let newFile;
 	try {
-		newFile = await plugin.app.vault.create(path, "");
+		newFile = await createMarkdownNoteInFolder(
+			folder,
+			filename,
+			(path, data) => plugin.app.vault.create(path, data)
+		);
 	} catch (e) {
 		const message = e instanceof Error ? e.message : String(e);
 		new Notice(`Could not create note: ${message}`);
 		return;
 	}
 
-	const leaf = plugin.app.workspace.getLeaf("split", "vertical");
-	await leaf.openFile(newFile);
-
-	if (leaf.isDeferred) {
-		await leaf.loadIfDeferred();
-	}
-
-	const newEditor = getEditorFromLeaf(leaf);
-	if (!newEditor) {
-		new Notice("New note opened but editor not ready.");
+	let newEditor: Editor;
+	try {
+		({ editor: newEditor } = await openFileInSplitAndGetEditor(
+			plugin.app.workspace,
+			newFile
+		));
+	} catch (e) {
+		const message = e instanceof Error ? e.message : String(e);
+		new Notice(message);
 		return;
 	}
 
 	const sourceBasename = activeFile.basename.replace(/\.md$/i, "");
-	const backlinkLine = `[[${sourceBasename}]]\n\n`;
 
-	// Prompt block with block ref so we can link directly to it (no extra heading)
-	const promptSection = `${selectedText}\n^prompt\n\n`;
-	newEditor.replaceRange(backlinkLine + promptSection, { line: 0, ch: 0 });
+	const { header, promptAnchor } = buildNewNoteHeader({
+		sourceBasename,
+		promptText: selectedText,
+		promptBlockId: "prompt",
+	});
+	newEditor.replaceRange(header, { line: 0, ch: 0 });
 
-	const insertPos = advancePos(
-		{ line: 0, ch: 0 },
-		backlinkLine + promptSection
-	);
+	const insertPos = advancePos({ line: 0, ch: 0 }, header);
 	let finalBasename = provisional || filename.replace(/\.md$/i, "");
 	const inserter = createBufferedInserter(newEditor, insertPos);
 	newEditor.setCursor(insertPos);
@@ -116,7 +119,7 @@ async function runPromptSelectedNewNoteCommand(
 	// Rename note to a 4–5 word summary of prompt + response
 	try {
 		const content = await plugin.app.vault.read(newFile);
-		const headerLength = (backlinkLine + promptSection).length;
+		const headerLength = header.length;
 		const responseText = content.slice(headerLength).trim();
 		const combined =
 			responseText.length > 0
@@ -132,8 +135,13 @@ async function runPromptSelectedNewNoteCommand(
 		});
 		const sanitized = sanitizeFilename(summary);
 		if (sanitized && sanitized !== provisional) {
-			const newPath = `${folder.path}/${sanitized}.md`;
-			await plugin.app.fileManager.renameFile(newFile, newPath);
+			await renameNoteIfNeeded({
+				file: newFile,
+				folder,
+				newBasename: sanitized,
+				renameFile: (file, newPath) =>
+					plugin.app.fileManager.renameFile(file, newPath),
+			});
 			finalBasename = sanitized;
 		}
 	} catch {
@@ -142,7 +150,7 @@ async function runPromptSelectedNewNoteCommand(
 
 	// Link from source: preserve selected text as link text, target the prompt block in the new note (^prompt)
 	const alias = linkAliasForSelectedText(selectedText);
-	editor.replaceSelection(`[[${finalBasename}#^prompt|${alias}]]`);
+	editor.replaceSelection(`[[${finalBasename}${promptAnchor}|${alias}]]`);
 }
 
 export function registerPromptSelectedNewNoteCommand(
