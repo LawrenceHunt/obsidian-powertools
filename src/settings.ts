@@ -25,7 +25,8 @@ export class PowerToolsSettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
-		const hasApiKey = () => Boolean(this.plugin.settings.openAIAPIKey?.trim());
+		const hasApiKey = () =>
+			Boolean(this.plugin.settings.openAIAPIKey?.trim());
 
 		new Setting(containerEl)
 			.setName("API key")
@@ -61,11 +62,14 @@ export class PowerToolsSettingsTab extends PluginSettingTab {
 				);
 
 			modelSetting.addDropdown((dropdown) => {
-				const current = this.plugin.settings.openAIModel || "gpt-4o-mini";
+				const current =
+					this.plugin.settings.openAIModel || "gpt-4o-mini";
 				const ids = modelIds.length > 0 ? modelIds : [current];
 
 				for (const id of ids) dropdown.addOption(id, id);
-				dropdown.setValue(ids.includes(current) ? current : ids[0] ?? current);
+				dropdown.setValue(
+					ids.includes(current) ? current : ids[0] ?? current
+				);
 				dropdown.setDisabled(!hasApiKey());
 
 				dropdown.onChange(async (value) => {
@@ -79,7 +83,7 @@ export class PowerToolsSettingsTab extends PluginSettingTab {
 					.setButtonText("Refresh")
 					.setDisabled(!hasApiKey())
 					.onClick(async () => {
-					await refreshModels();
+						await refreshModels();
 					})
 			);
 		};
@@ -87,7 +91,9 @@ export class PowerToolsSettingsTab extends PluginSettingTab {
 		const refreshModels = async () => {
 			const apiKey = this.plugin.settings.openAIAPIKey?.trim();
 			if (!apiKey) {
-				buildModelDropdown([this.plugin.settings.openAIModel || "gpt-4o-mini"]);
+				buildModelDropdown([
+					this.plugin.settings.openAIModel || "gpt-4o-mini",
+				]);
 				return;
 			}
 
@@ -98,7 +104,9 @@ export class PowerToolsSettingsTab extends PluginSettingTab {
 			} catch (e) {
 				const message = e instanceof Error ? e.message : String(e);
 				new Notice(`Power Tools: Could not load models. ${message}`);
-				buildModelDropdown([this.plugin.settings.openAIModel || "gpt-4o-mini"]);
+				buildModelDropdown([
+					this.plugin.settings.openAIModel || "gpt-4o-mini",
+				]);
 			}
 		};
 
