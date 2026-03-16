@@ -1,98 +1,58 @@
-# Obsidian Sample Plugin
+# Obsidian Power Tools
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+AI-powered commands and an agent chat that operate on your vault. Responses and operations stay in your markdown; you can widen context with more files (e.g. skills).
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+## What it does
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
+- **Selection → response**: Use selected text as a prompt; stream the reply into the same note or into a new note with a backlink.
+- **Agent chat**: A chat panel that can create notes, append to notes, move notes, search the vault, and list folders via tool calls. Optionally use the current note as context.
+- **Local-first**: No telemetry; your API key and content go only to the provider you configure (OpenAI today). Everything the agent does is reflected in your vault.
 
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## Commands (Command Palette: `Cmd/Ctrl + P`)
 
-## First time developing plugins?
+| Command                                | Description                                                                                                                    |
+|----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
+| **Use selection as prompt**            | Stream an AI response to the selected text and insert it below the selection in the same note.                                 |
+| **Use selection as prompt (new note)** | Create a new note, stream the response there, add a backlink from the source note, and rename the new note to a short summary. |
+| **Open agent chat**                    | Open the Power Tools chat view (also available from the ribbon).                                                               |
 
-Quick starting guide for new plugin devs:
+## Agent chat
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+The chat view is a harness around an LLM that can call tools against your vault. You can ask it to create notes, append to existing notes, move notes, search, and list folders. Replies are rendered as markdown (including Obsidian wiki-links).
 
-## Releasing new releases
+### Tools the agent can use
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+- **Create note** – Create a new note in a folder with optional content.
+- **Append to note** – Append content to an existing note by path.
+- **Move note** – Move a note from one path to another.
+- **Search vault** – Search note content (optional folder scope, configurable max results).
+- **List folders** – List folders under a path (or the vault root).
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+### Examples
 
-## Adding your plugin to the community plugin list
+- “Make a note in Projects called Weekly Review.”
+- “Summarise this week’s daily notes and save to a suitable adjacent file.” (with “Use current note as context” enabled, the agent can see the current note.)
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+### Chat UI
 
-## How to use
+- Toggle **Use current note as context** to include the active note’s content in the context window.
+- From assistant messages you can **Insert into note** (append to the active note) or **New note from message** (create a note from the message and open it).
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+## Settings
 
-## Manually installing the plugin
+Go to Settings → Community plugins → Power Tools
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+- **API key** – Your OpenAI API key ([create one](https://platform.openai.com/api-keys)). Required for all AI features.
+- **Model** – Model used for completions and the agent (e.g. `gpt-4o-mini`). The list is loaded from the API when an API key is set.
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+Only OpenAI is supported today (via the official SDK).
 
-## Funding URL
+## Installation
 
-You can include funding URLs where people who use your plugin can financially support it.
+1. Copy `main.js`, `manifest.json`, and `styles.css` into your vault’s `.obsidian/plugins/obsidian-powertools/` folder.
+2. Enable **Power Tools** under **Settings → Community plugins**.
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+## Contributing
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
-```
-
-If you have multiple URLs, you can also do:
-
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
-```
-
-## Power Tools Chat (agent)
-
-- **Open Power Tools Chat**: command palette or command **Open Power Tools Chat** to open the right-sidebar chat.
-- Set your OpenAI API key and model in **Settings → Community plugins → Power Tools**.
-- Optional: create a note `PowerTools/System prompt.md` in your vault to override the default agent instructions.
-- The agent can create notes, append to notes, move notes, search the vault, and list folders. Example: “Make a note in [[Projects]] called Weekly Review.”
-
-## API Documentation
-
-See https://docs.obsidian.md
+Issues, ideas and pull requests are welcome.
+See the [docs](https://docs.obsidian.md/Plugins/Getting+started/Anatomy+of+a+plugin) and clone this project to get started.
