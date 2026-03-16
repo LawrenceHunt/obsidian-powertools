@@ -2,6 +2,7 @@ import {
 	Component,
 	ItemView,
 	MarkdownRenderer,
+	Menu,
 	normalizePath,
 	TFile,
 	type App,
@@ -849,9 +850,9 @@ function AgentChatRoot({
 			</div>
 
 			<div class="powertools-chat-messages">
-				{visibleMessages.map((msg) => (
+				{visibleMessages.map((msg, idx) => (
 					<div
-						key={`msg-${state.messages.indexOf(msg)}`}
+						key={`msg-${idx}`}
 						class={`powertools-chat-bubble powertools-chat-bubble-${msg.role}`}
 					>
 						<div class="powertools-chat-bubble-content">
@@ -863,19 +864,36 @@ function AgentChatRoot({
 								<div class="powertools-chat-bubble-actions">
 									<button
 										type="button"
-										onClick={() =>
-											onInsertIntoNote(msg.content)
-										}
+										class="powertools-chat-bubble-menu-trigger"
+										aria-label="Message actions"
+										onClick={(evt: MouseEvent) => {
+											evt.preventDefault();
+											evt.stopPropagation();
+
+											const menu = new Menu();
+											menu.addItem((item) => {
+												item.setTitle(
+													"Insert into note"
+												).onClick(() =>
+													onInsertIntoNote(
+														msg.content
+													)
+												);
+											});
+											menu.addItem((item) => {
+												item.setTitle(
+													"New note from message"
+												).onClick(() =>
+													onNewNoteFromMessage(
+														msg.content
+													)
+												);
+											});
+
+											menu.showAtMouseEvent(evt);
+										}}
 									>
-										Insert into note
-									</button>
-									<button
-										type="button"
-										onClick={() =>
-											onNewNoteFromMessage(msg.content)
-										}
-									>
-										New note from message
+										⋯
 									</button>
 								</div>
 							)}
@@ -887,7 +905,7 @@ function AgentChatRoot({
 				<textarea
 					class="powertools-chat-input"
 					rows={3}
-					placeholder="Ask or tell the agent… (Enter to send, Shift+Enter for new line)"
+					placeholder="Ask or tell the agent…"
 					value={inputValue}
 					onInput={(evt: Event) => {
 						const target = evt.target as HTMLTextAreaElement | null;
