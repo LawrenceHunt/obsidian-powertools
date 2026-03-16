@@ -712,6 +712,7 @@ function AgentChatRoot({
 	const [state, setState] = useState<AgentChatViewState>(initialState);
 	const [statusText, setStatusText] = useState("");
 	const [inputValue, setInputValue] = useState("");
+	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
 	const addMessage = useCallback((msg: ChatMessage) => {
 		setState((prev) => ({
@@ -810,6 +811,16 @@ function AgentChatRoot({
 		[handleSend]
 	);
 
+	// Auto-resize textarea height to fit content up to a max height.
+	useEffect(() => {
+		const el = textareaRef.current;
+		if (!el) return;
+		el.style.height = "0px";
+		const maxHeight = 160; // ~8–10 lines depending on font size
+		const nextHeight = Math.min(el.scrollHeight, maxHeight);
+		el.style.height = `${nextHeight}px`;
+	}, [inputValue]);
+
 	const visibleMessages = state.messages.filter((m) => m.role !== "system");
 	const modelName = getModel() || "—";
 
@@ -902,21 +913,31 @@ function AgentChatRoot({
 			</div>
 
 			<div class="powertools-chat-input-wrap">
-				<textarea
-					class="powertools-chat-input"
-					rows={3}
-					placeholder="Ask or tell the agent…"
-					value={inputValue}
-					onInput={(evt: Event) => {
-						const target = evt.target as HTMLTextAreaElement | null;
-						setInputValue(target?.value ?? "");
-					}}
-					onKeyDown={
-						handleKeyDown as unknown as (evt: KeyboardEvent) => void
-					}
-				/>
-				<div class="powertools-chat-send-wrap">
-					<button type="button" class="mod-cta" onClick={handleSend}>
+				<div class="powertools-chat-input-container">
+					<textarea
+						ref={textareaRef}
+						class="powertools-chat-input"
+						rows={3}
+						placeholder="Ask or tell the agent…"
+						value={inputValue}
+						onInput={(evt: Event) => {
+							const target =
+								evt.target as HTMLTextAreaElement | null;
+							setInputValue(target?.value ?? "");
+						}}
+						onKeyDown={
+							handleKeyDown as unknown as (
+								evt: KeyboardEvent
+							) => void
+						}
+					/>
+					<button
+						type="button"
+						class="powertools-chat-send-button mod-cta"
+						onClick={handleSend}
+						disabled={!inputValue.trim()}
+						aria-label="Send message"
+					>
 						Send
 					</button>
 				</div>
