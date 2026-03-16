@@ -692,6 +692,102 @@ type AgentChatRootProps = {
 	onMount: (api: AgentChatApi | null) => void;
 };
 
+type InputTokenType = "tag" | "backlink";
+
+type InputToken = {
+	type: InputTokenType;
+	start: number;
+	end: number;
+};
+
+type SuggestionKind = "tag" | "backlink";
+
+type SuggestionItem = {
+	kind: SuggestionKind;
+	label: string;
+	insertText: string;
+};
+
+type ActiveSuggestionState =
+	| {
+			open: true;
+			kind: SuggestionKind;
+			query: string;
+			items: SuggestionItem[];
+			selectedIndex: number;
+			replaceFrom: number;
+			replaceTo: number;
+	  }
+	| {
+			open: false;
+	  };
+
+function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;");
+}
+
+function parseInputTokens(value: string): InputToken[] {
+	const tokens: InputToken[] = [];
+
+	// Simple hashtag tokens: #tag / #tag/path, separated by whitespace or start of string.
+	const tagRegex = /(^|\s)(#[^\s#\[\]]+)/g;
+	let m: RegExpExecArray | null;
+	while ((m = tagRegex.exec(value)) !== null) {
+		if (!m[1] || !m[2]) continue;
+		const start = m.index + m[1].length;
+		const end = start + m[2].length;
+		tokens.push({ type: "tag", start, end });
+	}
+
+	// Wikilinks: [[...]]
+	const linkRegex = /\[\[[^[\]]+\]\]/g;
+	while ((m = linkRegex.exec(value)) !== null) {
+		const start = m.index;
+		const end = m.index + m[0].length;
+		tokens.push({ type: "backlink", start, end });
+	}
+
+	tokens.sort((a, b) => a.start - b.start);
+	return tokens;
+}
+
+function buildHighlightHtml(value: string): string {
+	const tokens = parseInputTokens(value);
+	if (tokens.length === 0) {
+		return escapeHtml(value).replace(/\n/g, "<br>");
+	}
+
+	let html = "";
+	let cursor = 0;
+
+	for (const token of tokens) {
+		if (token.start > cursor) {
+			const plain = value.slice(cursor, token.start);
+			html += escapeHtml(plain);
+		}
+
+		const tokenText = value.slice(token.start, token.end);
+		const escaped = escapeHtml(tokenText);
+		const className =
+			token.type === "tag"
+				? "powertools-chat-input-token-tag"
+				: "powertools-chat-input-token-link";
+		html += `<span class="${className}">${escaped}</span>`;
+		cursor = token.end;
+	}
+
+	if (cursor < value.length) {
+		html += escapeHtml(value.slice(cursor));
+	}
+
+	return html.replace(/\n/g, "<br>");
+}
+
 function AgentChatRoot({
 	initialState,
 	onStateChange,
@@ -713,6 +809,12 @@ function AgentChatRoot({
 	const [statusText, setStatusText] = useState("");
 	const [inputValue, setInputValue] = useState("");
 	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+	const overlayRef = useRef<HTMLDivElement | null>(null);
+	const [highlightHtml, setHighlightHtml] = useState("");
+	const [allTags, setAllTags] = useState<string[]>([]);
+	const [allNotes, setAllNotes] = useState<string[]>([]);
+	const [suggestionState, setSuggestionState] =
+		useState<ActiveSuggestionState>({ open: false });
 
 	const addMessage = useCallback((msg: ChatMessage) => {
 		setState((prev) => ({
@@ -803,12 +905,69 @@ function AgentChatRoot({
 
 	const handleKeyDown = useCallback(
 		(evt: KeyboardEvent) => {
+			if (suggestionState.open) {
+				if (evt.key === "ArrowDown") {
+					evt.preventDefault();
+					setSuggestionState((prev) => {
+						if (!prev.open || prev.items.length === 0) return prev;
+						const nextIndex =
+							(prev.selectedIndex + 1) % prev.items.length;
+						return { ...prev, selectedIndex: nextIndex };
+					});
+					return;
+				}
+				if (evt.key === "ArrowUp") {
+					evt.preventDefault();
+					setSuggestionState((prev) => {
+						if (!prev.open || prev.items.length === 0) return prev;
+						const nextIndex =
+							(prev.selectedIndex - 1 + prev.items.length) %
+							prev.items.length;
+						return { ...prev, selectedIndex: nextIndex };
+					});
+					return;
+				}
+				if (evt.key === "Enter" || evt.key === "Tab") {
+					evt.preventDefault();
+					setSuggestionState((prev) => {
+						if (!prev.open || prev.items.length === 0) {
+							return { open: false };
+						}
+						const index = Math.max(
+							0,
+							Math.min(
+								prev.selectedIndex,
+								prev.items.length - 1
+							)
+						);
+						const item = prev.items[index];
+						const before = inputValue.slice(0, prev.replaceFrom);
+						const after = inputValue.slice(prev.replaceTo);
+						const spacer = item.kind === "tag" ? " " : "";
+						const nextValue =
+							before + item.insertText + spacer + after;
+						setInputValue(nextValue);
+						return { open: false };
+					});
+					return;
+				}
+				if (evt.key === "Escape") {
+					evt.preventDefault();
+					setSuggestionState({ open: false });
+					return;
+				}
+				if (evt.key === "Enter" && !evt.shiftKey) {
+					evt.preventDefault();
+					return;
+				}
+			}
+
 			if (evt.key === "Enter" && !evt.shiftKey) {
 				evt.preventDefault();
 				handleSend();
 			}
 		},
-		[handleSend]
+		[handleSend, inputValue, suggestionState.open]
 	);
 
 	// Auto-resize textarea height to fit content up to a max height.
@@ -820,6 +979,127 @@ function AgentChatRoot({
 		const nextHeight = Math.min(el.scrollHeight, maxHeight);
 		el.style.height = `${nextHeight}px`;
 	}, [inputValue]);
+
+	// Keep highlight HTML in sync with input value.
+	useEffect(() => {
+		if (!inputValue) {
+			setHighlightHtml("");
+		} else {
+			setHighlightHtml(buildHighlightHtml(inputValue));
+		}
+	}, [inputValue]);
+
+	// Load tags and notes for suggestions.
+	useEffect(() => {
+		const tagsObj = (app.metadataCache as any).getTags?.();
+		if (tagsObj && typeof tagsObj === "object") {
+			const uniqueTags = Array.from(
+				new Set(
+					Object.keys(tagsObj).map((t) =>
+						t.startsWith("#") ? t.slice(1) : t
+					)
+				)
+			).sort((a, b) => a.localeCompare(b));
+			setAllTags(uniqueTags);
+		}
+
+		const files = app.vault.getMarkdownFiles();
+		const noteNames = files.map((f) => f.basename).sort((a, b) =>
+			a.localeCompare(b)
+		);
+		setAllNotes(noteNames);
+	}, [app]);
+
+	// Keep overlay scroll position in sync with textarea.
+	const handleScroll = useCallback(() => {
+		const el = textareaRef.current;
+		const overlay = overlayRef.current;
+		if (!el || !overlay) return;
+		overlay.scrollTop = el.scrollTop;
+	}, []);
+
+	// Update suggestion list on input / caret changes.
+	const updateSuggestions = useCallback(
+		(target: HTMLTextAreaElement | null, nextValue: string) => {
+			if (!target) {
+				setSuggestionState({ open: false });
+				return;
+			}
+			const caret = target.selectionStart ?? nextValue.length;
+			// Detect tag context: #tag
+			let ctxKind: SuggestionKind | null = null;
+			let replaceFrom = caret;
+			let prefix = "";
+
+			// Look backwards for the start of the current word.
+			let wordStart = caret;
+			while (wordStart > 0) {
+				const ch = nextValue[wordStart - 1];
+				if (/\s/.test(ch)) break;
+				wordStart -= 1;
+			}
+			const word = nextValue.slice(wordStart, caret);
+
+			if (word.startsWith("#")) {
+				ctxKind = "tag";
+				replaceFrom = wordStart;
+				prefix = word.slice(1);
+			} else {
+				// Detect backlink context: [[...cursor
+				const uptoCaret = nextValue.slice(0, caret);
+				const lastOpen = uptoCaret.lastIndexOf("[[");
+				const lastClose = uptoCaret.lastIndexOf("]]");
+				if (lastOpen !== -1 && lastOpen > lastClose) {
+					ctxKind = "backlink";
+					replaceFrom = lastOpen;
+					prefix = nextValue.slice(lastOpen + 2, caret);
+				}
+			}
+
+			if (!ctxKind) {
+				setSuggestionState({ open: false });
+				return;
+			}
+
+			const lower = prefix.toLowerCase();
+			let items: SuggestionItem[] = [];
+			if (ctxKind === "tag") {
+				items = allTags
+					.filter((t) => t.toLowerCase().startsWith(lower))
+					.slice(0, 30)
+					.map((t) => ({
+						kind: "tag",
+						label: `#${t}`,
+						insertText: `#${t}`,
+					}));
+			} else {
+				items = allNotes
+					.filter((n) => n.toLowerCase().startsWith(lower))
+					.slice(0, 30)
+					.map((n) => ({
+						kind: "backlink",
+						label: n,
+						insertText: `[[${n}]]`,
+					}));
+			}
+
+			if (items.length === 0) {
+				setSuggestionState({ open: false });
+				return;
+			}
+
+			setSuggestionState({
+				open: true,
+				kind: ctxKind,
+				query: prefix,
+				items,
+				selectedIndex: 0,
+				replaceFrom,
+				replaceTo: caret,
+			});
+		},
+		[allNotes, allTags]
+	);
 
 	const visibleMessages = state.messages.filter((m) => m.role !== "system");
 	const modelName = getModel() || "—";
@@ -914,6 +1194,18 @@ function AgentChatRoot({
 
 			<div class="powertools-chat-input-wrap">
 				<div class="powertools-chat-input-container">
+					<div
+						class="powertools-chat-input-overlay"
+						ref={overlayRef}
+						aria-hidden="true"
+						// eslint-disable-next-line react/no-danger
+						dangerouslySetInnerHTML={{
+							__html:
+								highlightHtml.length > 0
+									? highlightHtml
+									: "&nbsp;",
+						}}
+					/>
 					<textarea
 						ref={textareaRef}
 						class="powertools-chat-input"
@@ -923,13 +1215,16 @@ function AgentChatRoot({
 						onInput={(evt: Event) => {
 							const target =
 								evt.target as HTMLTextAreaElement | null;
-							setInputValue(target?.value ?? "");
+							const next = target?.value ?? "";
+							setInputValue(next);
+							updateSuggestions(target, next);
 						}}
 						onKeyDown={
 							handleKeyDown as unknown as (
 								evt: KeyboardEvent
 							) => void
 						}
+						onScroll={handleScroll}
 					/>
 					<button
 						type="button"
@@ -941,6 +1236,35 @@ function AgentChatRoot({
 						Send
 					</button>
 				</div>
+				{suggestionState.open && suggestionState.items.length > 0 && (
+					<div
+						class="powertools-chat-suggestions"
+						role="listbox"
+						aria-label={
+							suggestionState.kind === "tag"
+								? "Tag suggestions"
+								: "Backlink suggestions"
+						}
+					>
+						{suggestionState.items.map((item, idx) => (
+							<div
+								key={`${item.kind}-${item.label}-${idx}`}
+								class={
+									"powertools-chat-suggestion-item" +
+									(idx === suggestionState.selectedIndex
+										? " is-selected"
+										: "")
+								}
+								role="option"
+								aria-selected={
+									idx === suggestionState.selectedIndex
+								}
+							>
+								{item.label}
+							</div>
+						))}
+					</div>
+				)}
 			</div>
 		</div>
 	);

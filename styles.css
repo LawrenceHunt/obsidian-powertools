@@ -129,8 +129,21 @@
 	border: 1px solid var(--background-modifier-border);
 	background: var(--background-primary);
 	padding: 6px 44px 6px 10px;
-	display: flex;
-	align-items: flex-end;
+}
+
+.powertools-chat-input-overlay {
+	position: absolute;
+	top: 6px;
+	left: 10px;
+	right: 44px;
+	bottom: 6px;
+	pointer-events: none;
+	color: var(--text-normal);
+	font-family: inherit;
+	font-size: 0.95em;
+	line-height: 1.4;
+	white-space: pre-wrap;
+	overflow-y: auto;
 }
 
 .powertools-chat-input {
@@ -138,7 +151,7 @@
 	min-height: 60px;
 	max-height: 160px;
 	resize: none;
-	padding: 4px 0;
+	padding: 0;
 	border: none;
 	background: transparent;
 	color: var(--text-normal);
@@ -159,9 +172,42 @@
 
 .powertools-chat-send-button {
 	position: absolute;
-	right: 8px;
+	right: 10px;
 	bottom: 8px;
 	padding-inline: 10px;
 	padding-block: 4px;
 	font-size: 0.85em;
+}
+
+.powertools-chat-input-token-tag {
+	background-color: var(--tag-background) !important;
+	color: var(--tag-color) !important;
+	border-radius: 2px;
+	padding: 0;
+}
+
+.powertools-chat-input-token-link {
+	color: var(--text-accent) !important;
+	text-decoration: none;
+}
+
+.powertools-chat-suggestions {
+	margin-top: 6px;
+	max-height: 180px;
+	overflow-y: auto;
+	border-radius: 8px;
+	border: 1px solid var(--background-modifier-border);
+	background: var(--background-primary);
+	box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.powertools-chat-suggestion-item {
+	padding: 4px 8px;
+	cursor: pointer;
+	font-size: 0.9em;
+}
+
+.powertools-chat-suggestion-item.is-selected {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
 }
