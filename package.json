@@ -25,6 +25,7 @@
 	},
 	"dependencies": {
 		"obsidian": "latest",
-		"openai": "^6.27.0"
+		"openai": "^6.27.0",
+		"preact": "^10.25.4"
 	}
 }

@@ -6,6 +6,7 @@ This project uses TypeScript to provide type checking and documentation.
 The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
 
 This sample plugin demonstrates some of the basic functionality the plugin API can do.
+
 - Adds a ribbon icon, which shows a Notice when clicked.
 - Adds a command "Open modal (simple)" which opens a Modal.
 - Adds a plugin setting tab to the settings page.
@@ -84,6 +85,13 @@ If you have multiple URLs, you can also do:
     }
 }
 ```
+
+## Power Tools Chat (agent)
+
+- **Open Power Tools Chat**: command palette or command **Open Power Tools Chat** to open the right-sidebar chat.
+- Set your OpenAI API key and model in **Settings → Community plugins → Power Tools**.
+- Optional: create a note `PowerTools/System prompt.md` in your vault to override the default agent instructions.
+- The agent can create notes, append to notes, move notes, search the vault, and list folders. Example: “Make a note in [[Projects]] called Weekly Review.”
 
 ## API Documentation
 
