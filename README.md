@@ -20,6 +20,8 @@ AI-powered commands and an agent chat that operate on your vault. Responses and 
 
 The chat view is a harness around an LLM that can call tools against your vault. You can ask it to create notes, append to existing notes, move notes, search, and list folders. Replies are rendered as markdown (including Obsidian wiki-links).
 
+Each chat view is backed by a markdown file in your vault (created next to the current note where possible, with a `.agent-chat.md` suffix). The chat’s messages and settings (including **Use current note as context**) are stored there in frontmatter + body, so you can search and lightly edit them like any other note.
+
 ### Tools the agent can use
 
 - **Create note** – Create a new note in a folder with optional content.
